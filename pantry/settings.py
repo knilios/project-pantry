@@ -12,6 +12,8 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 
 from pathlib import Path
 from decouple import config, Csv
+import dj_database_url
+from django.db.backends import postgresql
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -89,10 +91,16 @@ AUTHENTICATION_BACKENDS = (
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',  # Change this line
+        'NAME': config("DB_NAME"),  # You can set this to your actual database name
+        'USER': config("DB_USERNAME"),  # Replace with your Supabase username
+        'PASSWORD': config("DB_PASSWORD"),  # Ensure this is set correctly
+        'HOST': 'aws-0-ap-southeast-1.pooler.supabase.com',
+        'PORT': '6543',
     }
 }
+
+# DATABASES['default'] = dj_database_url.parse(url=f'user=postgres.ttgnzqytwznvanvfmcrz password={config("DB_PASSWORD")} host=aws-0-ap-southeast-1.pooler.supabase.com port=6543 dbname=postgres')
 
 
 # Password validation

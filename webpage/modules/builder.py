@@ -3,6 +3,7 @@ This module contains the implementation of the Builder pattern for constructing 
 
 Both manually (NormalRecipeBuilder) and via Spoonacular API (SpoonacularRecipeBuilder).
 """
+from decimal import Decimal
 from webpage.models import Recipe, Equipment, Ingredient, RecipeStep, IngredientList, EquipmentList, \
     Nutrition, NutritionList, Diet
 from django.contrib.auth.models import User
@@ -11,6 +12,7 @@ import requests
 from decouple import config
 from bs4 import BeautifulSoup
 import logging
+from webpage.modules.ai_advisor import AIRecipeAdvisor
 
 logger = logging.getLogger("Builder")
 
@@ -83,15 +85,6 @@ class Builder(ABC):
         pass
 
     @abstractmethod
-    def build_user(self, user: User):
-        """
-        Build the user which is the author of the recipe.
-
-        :param user: The user that is the author of the recipe.
-        """
-        pass
-
-    @abstractmethod
     def build_diet(self, diet: Diet):
         """
         Add one Diet class into the recipe.
@@ -127,10 +120,10 @@ class NormalRecipeBuilder(Builder):
         """
         self.__recipe = Recipe.objects.create(name=name, poster_id=user)
         self.__diet_list = []
+        self.__user = user
 
-    def build_details(self, **kwargs):  # Bad code change later.
+    def build_details(self, **kwargs):
         """Build the properties of the Recipe class."""
-        # Process keyword arguments
         for key, value in kwargs.items():
             setattr(self.__recipe, key, value)
 
@@ -192,7 +185,7 @@ class NormalRecipeBuilder(Builder):
             number=number)
         step.save()
 
-    def build_nutrition(self, nutrition: Nutrition, amount: int, unit: str):
+    def build_nutrition(self, nutrition: Nutrition, amount: Decimal, unit: str):
         """
         Build the nutrition in recipe.
 
@@ -235,11 +228,29 @@ class NormalRecipeBuilder(Builder):
         self.__recipe.spoonacular_id = spoonacular_id
         self.__recipe.save()
 
+    def build_difficulty(self):
+        """
+        Build the difficulty of the recipe.
 
-class SpoonacularRecipeBuilder(Builder):
+        :return: A difficulty of the recipe.
+        """
+        advisor = AIRecipeAdvisor(recipe=self.__recipe)
+        self.__recipe.difficulty = advisor.difficulty_calculator()
+        self.__recipe.save()
+
+    def build_status(self):
+        """
+        Build the status of the recipe.
+
+        :return: A status of the recipe.
+        """
+        if self.__recipe.poster_id.username == config('API_USERNAME', default='fake-username'):
+            self.__recipe.status = 'approved'
+        self.__recipe.save()
+
+
+class SpoonacularRecipeBuilder():
     """
-    This class is unused, for now.
-
     Concrete implementation of Builder for constructing recipes from Spoonacular API data.
 
     This class is responsible for assembling a Recipe object along with its
@@ -452,15 +463,23 @@ class SpoonacularRecipeBuilder(Builder):
                 unit=nutrition_data['unit'],
             )
 
-    def build_user(self, user: User):  # Bad code to be remove
-        """
-        Build the user which is the author of the recipe.
-
-        :param user: The user that is the author of the recipe.
-        """
-        pass
-
     def build_spoonacular_id(self):
         """Build the Spoonacular ID for the Recipe class."""
         self.__call_api()
         self.__builder.build_spoonacular_id(int(self.__data["id"]))
+
+    def build_difficulty(self):
+        """
+        Build the difficulty of the recipe.
+
+        :return: A difficulty of the recipe.
+        """
+        self.__builder.build_difficulty()
+
+    def build_status(self):
+        """
+        Build the status of the recipe.
+
+        :return: A status of the recipe.
+        """
+        self.__builder.build_status()
